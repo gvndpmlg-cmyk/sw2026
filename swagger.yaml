@@ -1,0 +1,302 @@
+openapi: 3.0.3
+info:
+  title: SW2026 E-commerce API
+  description: REST API for user authentication and checkout. Checkout is limited to authenticated users and accepts cash or credit card payments. Cash payments receive a 10% discount.
+  version: 1.0.0
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+tags:
+  - name: Health
+    description: Service availability
+  - name: Auth
+    description: User registration and login
+  - name: Checkout
+    description: Authenticated checkout
+paths:
+  /healthcheck:
+    get:
+      tags: [Health]
+      summary: Healthcheck
+      description: Returns the current API status.
+      operationId: healthcheck
+      responses:
+        "200":
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  service:
+                    type: string
+                    example: sw2026-ecommerce-api
+                  timestamp:
+                    type: string
+                    format: date-time
+                  uptime:
+                    type: number
+                    example: 12.45
+  /register:
+    post:
+      tags: [Auth]
+      summary: Register a user
+      description: Creates a new in-memory user account.
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+            example:
+              name: Dave Shopper
+              email: dave@shop.com
+              password: Password123
+      responses:
+        "201":
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /login:
+    post:
+      tags: [Auth]
+      summary: Login
+      description: Authenticates a user and returns a JWT token.
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+            example:
+              email: alice@shop.com
+              password: Password123
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /checkout:
+    post:
+      tags: [Checkout]
+      summary: Checkout
+      description: Completes an authenticated checkout. Payment methods are limited to cash or credit_card. Cash applies a 10% discount.
+      operationId: checkout
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckoutRequest"
+            examples:
+              cash:
+                summary: Cash checkout
+                value:
+                  paymentMethod: cash
+                  items:
+                    - productId: 1
+                      quantity: 1
+                    - productId: 2
+                      quantity: 2
+              creditCard:
+                summary: Credit card checkout
+                value:
+                  paymentMethod: credit_card
+                  items:
+                    - productId: 3
+                      quantity: 1
+      responses:
+        "200":
+          description: Checkout completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutResponse"
+        "400":
+          description: Invalid payment method, items, or insufficient stock
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing or invalid JWT token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: Alice Shopper
+        email:
+          type: string
+          example: alice@shop.com
+    RegisterRequest:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+    RegisterResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: User registered successfully
+        user:
+          $ref: "#/components/schemas/User"
+    LoginResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Login successful
+        token:
+          type: string
+        expiresIn:
+          type: string
+          example: 2h
+        user:
+          $ref: "#/components/schemas/User"
+    CheckoutItemRequest:
+      type: object
+      required: [productId, quantity]
+      properties:
+        productId:
+          type: integer
+          example: 1
+        quantity:
+          type: integer
+          minimum: 1
+          example: 2
+    CheckoutRequest:
+      type: object
+      required: [items, paymentMethod]
+      properties:
+        paymentMethod:
+          type: string
+          enum: [cash, credit_card]
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/CheckoutItemRequest"
+    CheckoutLineItem:
+      type: object
+      properties:
+        productId:
+          type: integer
+        name:
+          type: string
+        unitPrice:
+          type: number
+        quantity:
+          type: integer
+        lineTotal:
+          type: number
+    CheckoutResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Checkout completed
+        order:
+          type: object
+          properties:
+            orderId:
+              type: integer
+            user:
+              $ref: "#/components/schemas/User"
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/CheckoutLineItem"
+            paymentMethod:
+              type: string
+              enum: [cash, credit_card]
+            subtotal:
+              type: number
+              example: 170
+            discount:
+              type: number
+              example: 17
+            discountRate:
+              type: number
+              example: 0.1
+            total:
+              type: number
+              example: 153
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Authentication required
