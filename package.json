@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "mocha \"test/pathCoverage/**/*.test.js\" --timeout 10000 --exit --reporter mochawesome --reporter-options reportDir=mochawesome-report,reportFilename=path-coverage,overwrite=true,html=true,json=true"
+    "test": "mocha \"test/pathCoverage/**/*.test.js\" --timeout 10000 --exit --reporter mochawesome --reporter-options reportDir=mochawesome-report,reportFilename=path-coverage,overwrite=true,html=true,json=true",
+    "test:load": "k6 run test/loadTesting/login.js"
   },
   "keywords": [
     "ecommerce",
