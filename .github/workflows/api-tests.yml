@@ -1,0 +1,52 @@
+name: API Test Automation
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  api-tests:
+    name: Run API tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: npm
+
+      - name: Run npm install
+        run: npm install
+
+      - name: Run the API in background
+        run: |
+          npm start > api.log 2>&1 &
+          echo "API process started in background"
+
+      - name: Wait until the API is running
+        run: |
+          echo "Waiting for GET /healthcheck to report a healthy API"
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000/healthcheck; then
+              echo ""
+              echo "API is running and healthy"
+              exit 0
+            fi
+            echo "Attempt $i/30: API is not ready yet"
+            sleep 2
+          done
+          echo "API did not become healthy in time"
+          echo "----- API log -----"
+          cat api.log || true
+          exit 1
+
+      - name: Run the tests scripts
+        run: npm test
